@@ -1,34 +1,18 @@
 package video
 
 import (
+	"fmt"
 	"reflect"
 	"server/modules/model"
+	"strconv"
 )
-
-const tag = "video"
 
 // 视频属性
 type Attr struct {
-	Vid   string `video:"vid"`
-	Title string `video:"title"`
-	Image string `video:"image"`
-	Cat   int  `video:"cat"`
-}
-
-func (attr *Attr) unmarshal(data map[string]interface{}) error {
-	t := reflect.TypeOf(*attr)
-	v := reflect.ValueOf(attr).Elem()
-
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		value, ok := data[sf.Tag.Get(tag)]
-		if !ok {
-			continue
-		}
-
-		v.Field(i).Set(reflect.ValueOf(value))
-	}
-	return nil
+	Vid   string `json:"vid"`
+	Title string `json:"title"`
+	Image string `json:"image"`
+	Cat   int  `json:"cat"`
 }
 
 func (attr Attr) marshal() map[string]interface{}{
@@ -37,7 +21,7 @@ func (attr Attr) marshal() map[string]interface{}{
 	t := reflect.TypeOf(attr)
 	v := reflect.ValueOf(attr)
 	for i := 0; i < t.NumField(); i++ {
-		data[t.Field(i).Tag.Get(tag)] = v.Field(i).Interface()
+		data[t.Field(i).Tag.Get("json")] = v.Field(i).Interface()
 	}
 	return data
 }
@@ -53,38 +37,48 @@ func InitVideo() {
 }
 
 func Find(vid string) (*Attr, error) {
-	result, err := engine.Find(map[string]interface{}{"vid": vid})
-	if err != nil {
-		return nil, err
-	}
-
-	var a Attr
-	err = a.unmarshal(result)
-	return &a, err
+	attr := &Attr{}
+	err := engine.Find(map[string]interface{}{"vid": vid}, attr)
+	return attr, err
 }
 
 func Create(attr *Attr) error {
 	return engine.Create(attr.marshal())
 }
 
-func Update(vid string, fields map[string]interface{}) error {
-	return engine.Update(map[string]interface{}{"vid": vid}, fields)
+func Update(vid string, fields map[string]string) error {
+	t := reflect.TypeOf(Attr{})
+	tags := make(map[string]reflect.Kind)
+	for i:=0; i<t.NumField(); i++ {
+		sf := t.Field(i)
+		tags[sf.Tag.Get("json")] = sf.Type.Kind()
+	}
+
+	updateFields := make(map[string]interface{})
+	for key, value := range fields {
+		kind, ok := tags[key]
+		if !ok {
+			return fmt.Errorf("unexpected key:%s", key)
+		}
+
+		switch kind {
+		case reflect.String:
+			updateFields[key] = value
+		case reflect.Int:
+			iValue, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("key:%s must be able to convert to int. err:%v", key, err)
+			}
+			updateFields[key] = iValue
+		default:
+			return fmt.Errorf("unexpected type. key:%s", key)
+		}
+	}
+	return engine.Update(map[string]interface{}{"vid": vid}, updateFields)
 }
 
 func List() ([]Attr, error) {
-	results, _, err := engine.Batch(nil, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	var as []Attr
-	for _, result := range results {
-		var a Attr
-		err = a.unmarshal(result)
-		if err != nil {
-			return nil, err
-		}
-		as = append(as, a)
-	}
-	return as, nil
+	var attrs []Attr
+	 _, err := engine.Batch(nil, &attrs, 0, 0)
+	return attrs, err
 }

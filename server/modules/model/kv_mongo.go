@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -11,18 +12,9 @@ type kvMongo struct {
 	col	*mongo.Collection
 }
 
-func (mon *kvMongo) Find(fields map[string]interface{}) (map[string]interface{}, error) {
-	cursor, err :=  mon.col.Find(nil, fields)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]interface{})
-	for cursor.Next(nil) {
-		cursor.Decode(&result)
-	}
-
-	return result, nil
+func (mon *kvMongo) Find(fields map[string]interface{}, result interface{}) error {
+	single :=  mon.col.FindOne(nil, fields)
+	return single.Decode(result)
 }
 
 func (mon *kvMongo) Create(fields map[string]interface{}) error {
@@ -35,22 +27,19 @@ func (mon *kvMongo) Update(query map[string]interface{}, fields map[string]inter
 	return err
 }
 
-func (mon *kvMongo) Batch(query []Condition, page, pageSize int) (result []map[string]interface{}, total int, err error) {
+func (mon *kvMongo) Batch(query []Condition, result interface{}, page, pageSize int) (total int, err error) {
 	cursor, err := mon.col.Find(nil, parseConditionToFilter(query))
 	if err != nil {
-		return nil, 0, err
+		return 0, err
 	}
 
-	for cursor.Next(nil) {
-	 	single := make(map[string]interface{})
-		err := cursor.Decode(&single)
-		if err != nil {
-			return nil, 0, err
-		}
+	var tmp []map[string]interface{}
+	err = cursor.All(nil, &tmp)
 
-		result = append(result, single)
-	}
-	return result, 0, nil
+	jsonBytes, _ := json.Marshal(tmp)
+	_ = json.Unmarshal(jsonBytes, &result)
+
+	return 0, err
 }
 
 func parseConditionToFilter(conditions []Condition) bson.D {

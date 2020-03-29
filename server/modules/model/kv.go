@@ -14,21 +14,13 @@ const (
 	LIKE	  // 匹配
 )
 
-// 视频属性
-type Attr struct {
-	Vid   string
-	Title string
-	Image string
-	Cat   int
-}
-
 // 定义视频数据类型和操作方法
 type Engine interface {
-	Find(fields map[string]interface{}) (map[string]interface{}, error)
+	Find(fields map[string]interface{}, result interface{}) error
 	Create(fields map[string]interface{}) error
 	Update(query map[string]interface{}, fields map[string]interface{}) error
 
-	Batch(query []Condition, page, pageSize int) (result []map[string]interface{}, total int, err error)
+	Batch(query []Condition, result interface{}, page, pageSize int) (total int, err error)
 }
 
 func NewEngine() (Engine, error) {
