@@ -23,6 +23,6 @@ type Engine interface {
 	Batch(query []Condition, result interface{}, page, pageSize int) (total int, err error)
 }
 
-func NewEngine() (Engine, error) {
-	return newKVMongo("mongodb://9.134.33.32:27017", "test", "test")
+func NewEngine(collection string) (Engine, error) {
+	return newKVMongo("mongodb://9.134.33.32:27017", "test", collection)
 }

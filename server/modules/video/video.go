@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"server/modules/model"
 	"strconv"
+	"time"
 )
 
 // 视频属性
@@ -12,7 +13,8 @@ type Attr struct {
 	Vid   string `json:"vid"`
 	Title string `json:"title"`
 	Image string `json:"image"`
-	Cat   int  `json:"cat"`
+	CreateTime int `json:"create_time"`
+	UpdateTime int `json:"update_time"`
 }
 
 func (attr Attr) marshal() map[string]interface{}{
@@ -30,7 +32,7 @@ var engine model.Engine
 
 func InitVideo() {
 	var err error
-	engine, err = model.NewEngine()
+	engine, err = model.NewEngine("test")
 	if err != nil {
 		panic(err)
 	}
@@ -43,6 +45,8 @@ func Find(vid string) (*Attr, error) {
 }
 
 func Create(attr *Attr) error {
+	attr.CreateTime = int(time.Now().Unix())
+	attr.UpdateTime = int(time.Now().Unix())
 	return engine.Create(attr.marshal())
 }
 
@@ -55,6 +59,9 @@ func Update(vid string, fields map[string]string) error {
 	}
 
 	updateFields := make(map[string]interface{})
+	// 默认值
+	updateFields["update_time"] = int(time.Now().Unix())
+
 	for key, value := range fields {
 		kind, ok := tags[key]
 		if !ok {
@@ -70,6 +77,7 @@ func Update(vid string, fields map[string]string) error {
 				return fmt.Errorf("key:%s must be able to convert to int. err:%v", key, err)
 			}
 			updateFields[key] = iValue
+
 		default:
 			return fmt.Errorf("unexpected type. key:%s", key)
 		}
